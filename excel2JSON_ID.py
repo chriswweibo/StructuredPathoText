@@ -42,10 +42,10 @@ def excel2JSON_ID(path):
     from tqdm import tqdm   
     from math import isnan
     #date_format = "%Y-%M-%d"
-    sheets=['base','emr','ihc','molecule','lymph']    
+    sheets=['base','emr','ihc','molecule','lymph','treatment','survival']    
     print('loading excel file (sheet names must contain all of base,emr,ihc,molecule and lymph)...')
     value_type={i:str for i in ['住院号','病理号','蜡块号','部位','指标名','取值']}
-    dat_base,dat_emr,dat_ihc,dat_molecule,dat_lymph=[pretreat(pd.read_excel(path,sheet_name=i,dtype=value_type).dropna(subset=['住院号','病理号','取值','报告日期']).fillna('未知')) for i in sheets]
+    dat_base,dat_emr,dat_ihc,dat_molecule,dat_lymph,dat_treat,dat_surv=[pretreat(pd.read_excel(path,sheet_name=i,dtype=value_type).dropna(subset=['住院号','病理号','取值','报告日期']).fillna('未知')) for i in sheets]
 
     print('unifying date format. ..')
     dat_base.loc[dat_base.指标名=='送检日期','取值']= \
@@ -60,6 +60,8 @@ def excel2JSON_ID(path):
     group_ihc=dat_ihc.groupby(['病理号','部位','蜡块号']).apply(todict).reset_index()
     group_molecule=dat_molecule.groupby(['住院号','报告日期','病理号']).apply(todict).reset_index()
     group_lymph=dat_lymph.groupby(['住院号','报告日期','病理号']).apply(todict).reset_index()
+    group_treat=dat_treat.groupby(['住院号','报告日期','病理号']).apply(todict).reset_index()
+    group_surv=dat_surv.groupby(['住院号','报告日期','病理号']).apply(todict).reset_index()
     
     emr_ihc=pd.merge(group_emr,group_ihc,on=['病理号','部位'],how='left',suffixes=['_emr','_ihc'])
     base_emr_ihc=pd.merge(group_base,emr_ihc,on=['住院号','病理号'],how='left',suffixes=['_base',''])
@@ -144,6 +146,36 @@ def excel2JSON_ID(path):
                     lym.update({'编号':subs_lymph.iloc[l,2]})
                     lymph.append(lym)
                     one.update({'lymph_info':lymph})
+                    
+        if len(group_treat)==0:
+            one.update({'treat_info':[]})
+        else:
+            subs_treat=group_treat[group_treat.住院号==id]
+            if len(subs_treat)==0:
+                one.update({'treat_info':[]})                
+            else:
+                treat=[]
+                for l in range(len(subs_treat)):
+                    trt=subs_treat.iloc[l,3]
+                    trt.update({'报告日期':str(subs_treat.iloc[l,1].date())})
+                    trt.update({'编号':subs_treat.iloc[l,2]})
+                    treat.append(trt)
+                    one.update({'treat_info':treat})
+                    
+        if len(group_surv)==0:
+            one.update({'surv_info':[]})
+        else:
+            subs_surv=group_surv[group_surv.住院号==id]
+            if len(subs_surv)==0:
+                one.update({'surv_info':[]})                
+            else:
+                surv=[]
+                for l in range(len(subs_surv)):
+                    srv=subs_surv.iloc[l,3]
+                    srv.update({'报告日期':str(subs_surv.iloc[l,1].date())})
+                    srv.update({'编号':subs_surv.iloc[l,2]})
+                    surv.append(srv)
+                    one.update({'surv_info':surv})
             
         all.append(one)    
              
@@ -155,7 +187,7 @@ def excel2JSON_ID(path):
     f.close()
 
 ## begin to json
-path='D:/肺癌多中心/哈医大/HaYiDa提交文件.xlsx'
+path='D:/肺癌多中心/吉大一院/JiDaYiYuan20190319.xlsx'
 excel2JSON_ID(path)
    
 def dictMerge(arr):
@@ -216,5 +248,5 @@ def validCase(path,days=30):
     f.close()      
             
     
-path='D:/肺癌多中心/哈医大/HaYiDa提交文件.xlsx_ID.JSON'
+path='D:/肺癌多中心/山西肿瘤/山西肿瘤医院_20190312.xlsx_ID.JSON'
 validCase(path)  
